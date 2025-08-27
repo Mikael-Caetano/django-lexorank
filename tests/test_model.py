@@ -148,21 +148,24 @@ def test_rebalancing_ranked_model_does_not_affect_objects_in_another_list(task_f
 
 
 def test_moving_ranked_model_to_another_list_updates_place_it_on_top_when_insert_to_bottom_is_set_to_false(  # noqa: E501
-    task_factory, task, board
+    task_factory, board, status_factory
 ):
     # given
-    task_factory.create_batch(10, board=board)
+
+    initial_status = status_factory()
+    tasks_created = task_factory.create_batch(10, board=board, status=initial_status)
+
+    task = tasks_created[4]
     initial_rank = task.rank
-    initial_board = task.board
 
     # when
-    task.board = board
+    task.status = status_factory()
     task.save()
 
     # then
-    assert task.board != initial_board
+    assert task.status != initial_status
     assert task.rank != initial_rank
-    assert Task.objects.order_by("rank").first() == task
+    assert Task.objects.filter(status=task.status).order_by("rank").first() == task
 
 
 def test_moving_ranked_model_to_another_list_updates_place_it_on_the_bottom_when_insert_to_bottom_is_set_to_true(  # noqa: E501
@@ -241,10 +244,11 @@ def test_rebalancing_scheduled_return_false_if_no_rebalancing_were_scheduled(
 def test_rebalancing_scheduled_return_false_if_rebalancing_was_scheduled_for_another_group(  # noqa: E501
     task_factory,
     board,
+    status,
     scheduled_rebalancing_factory,
 ):
     # given
-    tasks_on_board = task_factory.create_batch(3, board=board)
+    tasks_on_board = task_factory.create_batch(3, board=board, status=status)
     another_tasks = task_factory.create_batch(5)
 
     scheduled_rebalancing_factory.create(
@@ -261,10 +265,10 @@ def test_rebalancing_scheduled_return_false_if_rebalancing_was_scheduled_for_ano
 
 
 def test_rebalancing_is_scheduled_for_a_list_if_rank_length_exceeds_the_limit(
-    task_factory, board
+    task_factory, board, status
 ):
     # given
-    tasks_on_board = task_factory.create_batch(3, board=board)
+    tasks_on_board = task_factory.create_batch(3, board=board, status=status)
     another_tasks = task_factory.create_batch(5)
 
     # when

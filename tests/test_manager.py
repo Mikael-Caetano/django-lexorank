@@ -86,14 +86,14 @@ def test_creating_a_ranked_model_using_add_to_bottom_method_add_it_to_the_bottom
 
 
 def test_creating_a_ranked_model_with_another_respect_field_place_it_to_a_separate_list(
-    task_factory, board, user, board_factory
+    task_factory, board, user, board_factory, status
 ):
     # given
     tasks_on_board = task_factory.create_batch(10, board=board)
     another_board = board_factory.create()
 
     # when
-    task = Task.objects.create(name="Task", assigned_to=user, board=another_board)
+    task = Task.objects.create(name="Task", assigned_to=user, board=another_board, status=status)
 
     # then
     assert tasks_on_board[0].rank == task.rank

@@ -2,7 +2,7 @@ import factory
 
 from django_lexorank.models import ScheduledRebalancing
 
-from .models import Board, Task, Team, User
+from .models import Board, Status, Task, Team, User
 
 
 class TeamFactory(factory.django.DjangoModelFactory):
@@ -27,11 +27,20 @@ class BoardFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f"board_{n}")
 
 
+class StatusFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Status
+
+    board = factory.SubFactory(BoardFactory)
+    name = factory.Sequence(lambda n: f"status_{n}")
+
+
 class TaskFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Task
 
     board = factory.SubFactory(BoardFactory)
+    status = factory.SubFactory(StatusFactory)
     assigned_to = factory.SubFactory(UserFactory)
     name = factory.Sequence(lambda n: f"task_{n}")
 

@@ -1,8 +1,10 @@
+# django-lexorank/tests/fixtures.py
 import pytest
 
 from .factories import (
     BoardFactory,
     ScheduledRebalancingFactory,
+    StatusFactory,
     TaskFactory,
     TeamFactory,
     UserFactory,
@@ -37,6 +39,16 @@ def board_factory():
 @pytest.fixture
 def board(board_factory):
     return board_factory()
+
+
+@pytest.fixture
+def status_factory():
+    return StatusFactory
+
+
+@pytest.fixture
+def status(status_factory):
+    return status_factory()
 
 
 @pytest.fixture

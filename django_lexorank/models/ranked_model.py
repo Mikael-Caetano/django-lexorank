@@ -18,7 +18,7 @@ CharField.register_lookup(Length, "length")
 class RankedModel(models.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.__initial_values = model_to_dict(self)
+        self._initial_values = self._get_initial_field_values()
 
     objects = RankedModelManager()
 
@@ -36,18 +36,38 @@ class RankedModel(models.Model):
         instance._state.db = db
         instance._initial_values = dict(zip(field_names, values))
         return instance
+    
+    def _get_initial_field_values(self) -> dict:
+        """
+        Safely captures the initial state of all model fields.
+        For ForeignKey fields, it explicitly stores the ID to avoid
+        triggering database queries and causing recursion.
+        """
+        initial_data = {}
+        for field in self._meta.fields:
+            if field.is_relation:
+                initial_data[field.attname] = getattr(self, field.attname)
+            else:
+                initial_data[field.name] = getattr(self, field.name)
+        return initial_data
 
-    def field_value_has_changed(self, field: str) -> bool:
-        if not self.pk or not self.__initial_values:
+    def field_value_has_changed(self, field_name: str) -> bool:
+        """
+        Checks if a field's value has changed since the model was instantiated.
+        Handles ForeignKey relationships by comparing their IDs.
+        """
+        if not self.pk:
             return False
 
-        current_value = getattr(self, field)
-        initial_value = self.__initial_values[field]
+        field = self._meta.get_field(field_name)
+        
+        # Determine the correct field name to check (_id for foreign keys)
+        key_to_check = field.attname if field.is_relation else field.name
+        
+        initial_value = self._initial_values.get(key_to_check)
+        current_value = getattr(self, key_to_check)
 
-        if isinstance(current_value, models.Model):
-            current_value = current_value.pk
-
-        return current_value != initial_value
+        return initial_value != current_value
 
     @transaction.atomic
     def save(self, *args, **kwargs) -> None:
