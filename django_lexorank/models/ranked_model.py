@@ -16,10 +16,6 @@ CharField.register_lookup(Length, "length")
 
 
 class RankedModel(models.Model):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._initial_values = self._get_initial_field_values()
-
     objects = RankedModelManager()
 
     rank = RankField()
@@ -29,50 +25,23 @@ class RankedModel(models.Model):
         abstract = True
         ordering = ["rank"]
 
-    @classmethod
-    def from_db(cls, db, field_names, values):
-        instance = super().from_db(db, field_names, values)
-        instance._state.adding = False
-        instance._state.db = db
-        instance._initial_values = dict(zip(field_names, values))
-        return instance
-    
-    def _get_initial_field_values(self) -> dict:
-        """
-        Safely captures the initial state of all model fields.
-        For ForeignKey fields, it explicitly stores the ID to avoid
-        triggering database queries and causing recursion.
-        """
-        initial_data = {}
-        for field in self._meta.fields:
-            if field.is_relation:
-                initial_data[field.attname] = getattr(self, field.attname)
-            else:
-                initial_data[field.name] = getattr(self, field.name)
-        return initial_data
-
-    def field_value_has_changed(self, field_name: str) -> bool:
-        """
-        Checks if a field's value has changed since the model was instantiated.
-        Handles ForeignKey relationships by comparing their IDs.
-        """
-        if not self.pk:
-            return False
-
-        field = self._meta.get_field(field_name)
-        
-        # Determine the correct field name to check (_id for foreign keys)
-        key_to_check = field.attname if field.is_relation else field.name
-        
-        initial_value = self._initial_values.get(key_to_check)
-        current_value = getattr(self, key_to_check)
-
-        return initial_value != current_value
 
     @transaction.atomic
     def save(self, *args, **kwargs) -> None:
-        if self.order_with_respect_to:
-            if self.field_value_has_changed(self.order_with_respect_to):
+        if not self._state.adding and self.order_with_respect_to:
+            grouping_field_name = self.order_with_respect_to
+            field = self._meta.get_field(grouping_field_name)
+
+            try:
+                old_group_id = self.__class__.objects.filter(
+                    pk=self.pk
+                ).values_list(field.attname, flat=True)[0]
+            except IndexError:
+                old_group_id = None
+
+            current_group_id = getattr(self, field.attname)
+
+            if old_group_id != current_group_id:
                 self.rank = None  # type: ignore[assignment]
 
         super().save(*args, **kwargs)
