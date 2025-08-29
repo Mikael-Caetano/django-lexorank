@@ -16,10 +16,6 @@ CharField.register_lookup(Length, "length")
 
 
 class RankedModel(models.Model):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.__initial_values = model_to_dict(self)
-
     objects = RankedModelManager()
 
     rank = RankField()
@@ -29,30 +25,23 @@ class RankedModel(models.Model):
         abstract = True
         ordering = ["rank"]
 
-    @classmethod
-    def from_db(cls, db, field_names, values):
-        instance = super().from_db(db, field_names, values)
-        instance._state.adding = False
-        instance._state.db = db
-        instance._initial_values = dict(zip(field_names, values))
-        return instance
-
-    def field_value_has_changed(self, field: str) -> bool:
-        if not self.pk or not self.__initial_values:
-            return False
-
-        current_value = getattr(self, field)
-        initial_value = self.__initial_values[field]
-
-        if isinstance(current_value, models.Model):
-            current_value = current_value.pk
-
-        return current_value != initial_value
 
     @transaction.atomic
     def save(self, *args, **kwargs) -> None:
-        if self.order_with_respect_to:
-            if self.field_value_has_changed(self.order_with_respect_to):
+        if not self._state.adding and self.order_with_respect_to:
+            grouping_field_name = self.order_with_respect_to
+            field = self._meta.get_field(grouping_field_name)
+
+            try:
+                old_group_id = self.__class__.objects.filter(
+                    pk=self.pk
+                ).values_list(field.attname, flat=True)[0]
+            except IndexError:
+                old_group_id = None
+
+            current_group_id = getattr(self, field.attname)
+
+            if old_group_id != current_group_id:
                 self.rank = None  # type: ignore[assignment]
 
         super().save(*args, **kwargs)

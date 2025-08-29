@@ -20,11 +20,19 @@ class Board(RankedModel):
     name = models.CharField(max_length=255)
 
 
-class Task(RankedModel):
+class Status(RankedModel):
+    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="statuses")
     name = models.CharField(max_length=255)
-    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="tasks")
+
     order_with_respect_to = "board"
 
+   
+class Task(RankedModel):
+    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="tasks")
+    status = models.ForeignKey(Status, on_delete=models.CASCADE, related_name="tasks")
+    name = models.CharField(max_length=255)
     assigned_to = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="tasks"
     )
+
+    order_with_respect_to = "status"
